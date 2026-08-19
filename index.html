@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#171815">
+  <meta name="description" content="带有逐步引导、规则校验与角色卡导出的半自动车卡工具。">
+  <title>角色创建引导器</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">◇</span>
+        <div><b>角色创建引导器</b><small>半自动车卡</small></div>
+      </div>
+      <nav id="stepNav" aria-label="创建步骤"></nav>
+      <div class="save-note"><i></i><span>进度保存在此设备</span></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <div><span class="eyebrow">CHARACTER CREATION</span><h1 id="pageTitle">先认识你的角色</h1></div>
+        <button class="ghost-button" id="resetButton" type="button">重新开始</button>
+      </header>
+      <section id="stepContent" class="step-content" aria-live="polite"></section>
+      <footer class="actionbar">
+        <button id="backButton" class="secondary-button" type="button">上一步</button>
+        <div class="progress-copy"><span id="stepCounter"></span><div class="progress-track"><i id="progressFill"></i></div></div>
+        <button id="nextButton" class="primary-button" type="button">继续</button>
+      </footer>
+    </main>
+    <aside class="sheet-preview" id="sheetPreview"></aside>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
