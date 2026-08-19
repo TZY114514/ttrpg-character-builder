@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#171815">
+  <meta name="description" content="管理角色生命、资源、状态、背包与后续成长。">
+  <title>人物卡管理</title>
+  <link rel="stylesheet" href="styles.css?v=20260819-3">
+  <link rel="stylesheet" href="manager.css?v=20260820-3">
+</head>
+<body>
+  <div class="manager-shell">
+    <aside class="manager-sidebar">
+      <a class="brand manager-brand" href="index.html">
+        <span class="brand-mark">◇</span>
+        <div><b>人物卡管理</b><small>CHARACTER ARCHIVE</small></div>
+      </a>
+      <div class="roster-tools">
+        <button class="primary-button" type="button" data-action="newCharacter">＋ 创建新角色</button>
+        <button class="ghost-button" type="button" data-action="importLibrary">读取备份</button>
+        <input id="libraryImport" type="file" accept="application/json" hidden>
+      </div>
+      <div class="roster-heading"><span>角色档案</span><b id="rosterCount">0</b></div>
+      <nav id="characterRoster" class="character-roster" aria-label="角色档案"></nav>
+      <div class="manager-backup">
+        <button class="ghost-button" type="button" data-action="exportLibrary">备份全部角色</button>
+        <small>档案保存在此设备。建议定期导出备份。</small>
+      </div>
+    </aside>
+    <main class="manager-main">
+      <header class="manager-topbar">
+        <div><span class="eyebrow">PLAYABLE CHARACTER SHEET</span><h1>人物卡管理</h1></div>
+        <a class="ghost-button manager-link" href="index.html">返回车卡工具</a>
+      </header>
+      <section id="managerContent" class="manager-content" aria-live="polite"></section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="data.js"></script>
+  <script src="character-store.js?v=20260819-1"></script>
+  <script src="manager.js?v=20260820-3"></script>
+</body>
+</html>

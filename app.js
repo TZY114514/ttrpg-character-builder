@@ -15,7 +15,7 @@ const backgroundById = id => BACKGROUNDS.find(b => b.id === id);
 
 function freshState(){
   return {
-    version:1,step:0,maxStep:0,name:"",player:"",pronouns:"",origin:"outer",concept:"",role:"",reason:"",fear:"",contact:"",tokenImage:"",
+    version:1,libraryId:"",step:0,maxStep:0,name:"",player:"",pronouns:"",origin:"outer",concept:"",role:"",reason:"",fear:"",contact:"",tokenImage:"",
     stats:Object.fromEntries(ATTRIBUTES.map(a=>[a,8])),backgroundId:"",backgroundSkills:[],backgroundTool:"",backgroundWeapon:"",
     bgBonuses:Object.fromEntries(ATTRIBUTES.map(a=>[a,0])),entanglement:"",schoolId:"",schoolSkills:[],schoolLanguage:"",
     totalOP:1,schoolNodes:{},schoolOrder:[],activeSchoolId:"",armor:"none",shield:false,weapon:"",pack:"",money:"",gold:"",guideFee:false,equipmentNotes:"",
@@ -134,7 +134,8 @@ function choiceChips(items,selected,action,limit,disabled=[]){return `<div class
 
 function renderConcept(){
   const roles=["近战前排","远程输出","支援控制","调查解谜","召唤随从","高风险能力"];
-  return `<p class="intro-copy">你不需要先读完整本规则。回答几个问题，我们会把一个模糊的角色念头逐步整理成可直接上桌的角色卡。</p>
+  return `<div class="start-import-panel"><div><span class="eyebrow">RETURNING CHARACTER</span><b>已经有角色或存档？</b><p>读取车卡存档可继续上次进度；完整人物档案备份也可以在这里直接恢复。</p></div><div class="start-import-actions"><button class="ghost-button" data-action="importJson">读取角色存档</button><a class="ghost-button manager-link" href="manager.html">进入人物卡管理</a><input id="importFile" type="file" accept="application/json" hidden></div></div>
+  <p class="intro-copy">你不需要先读完整本规则。回答几个问题，我们会把一个模糊的角色念头逐步整理成可直接上桌的角色卡。</p>
   <div class="field-grid"><div class="field"><label>角色姓名</label><input data-bind="name" value="${esc(state.name)}" placeholder="暂时没有也可以先写代号"></div><div class="field"><label>玩家姓名</label><input data-bind="player" value="${esc(state.player)}" placeholder="可选"></div>
   <div class="field wide"><label>角色形象／Token（可选）</label><div class="token-uploader">${tokenMarkup("token-avatar-upload")}<div class="token-upload-copy"><b>${state.tokenImage?'角色形象已加入':'加入角色形象'}</b><p>上传 PNG、JPG 或 WebP。图片会自动裁切为方形并压缩，随存档和独立角色卡一起导出。</p><div class="token-actions"><label class="ghost-button" for="tokenFile">${state.tokenImage?'更换图片':'选择图片'}</label>${state.tokenImage?'<button type="button" class="ghost-button danger-button" data-action="removeToken">移除</button>':''}<input id="tokenFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></div></div></div></div>
   <div class="field wide"><label>你与隐秘世界的距离</label><div class="choice-row"><button class="choice-card ${state.origin==='outer'?'selected':''}" data-action="origin" data-value="outer"><b>门外人</b><small>你原本生活在世俗秩序中，适合第一次接触本规则的玩家。</small></button><button class="choice-card ${state.origin==='inner'?'selected':''}" data-action="origin" data-value="inner"><b>门内人</b><small>你曾为秘社、仪式团体、藏书人或驱魔人做过事。</small></button></div></div>
@@ -217,7 +218,6 @@ function renderNodes(){
   <div class="school-tabs">${(state.schoolOrder||[]).map(id=>{const s=schoolById(id),op=nodeSpentFor(id),conf=id===main?.id?null:conflictBetween(main?.id,id);return `<div class="school-tab ${school.id===id?'active':''}"><button data-action="activeSchool" data-value="${id}"><b>${s.name}</b><small>${op} OP ${id===state.schoolId?'· 初始':''} ${id===main?.id?'· 主学派':''} ${conf?.type==='light'?`· 上限 ${lightCapFor(id)} OP`:''}</small></button>${id!==state.schoolId?`<button class="school-remove" data-action="removeSchool" data-value="${id}" aria-label="移除${s.name}">×</button>`:''}</div>`}).join("")}</div>
   ${unselected.length?`${sectionHeading("增加兼修学派","重度冲突无法同时投入 OP；轻度冲突受到主学派一半的上限约束")}<div class="card-grid">${unselected.map(s=>{const c=candidateConflict(s.id),heavy=c?.type==='heavy';return `<button class="option-card ${heavy?'disabled':''}" data-action="addSchool" data-value="${s.id}" ${heavy?'disabled':''}><h3>${s.name}</h3><p>${c?c.reason:'未列入冲突表，可以正常兼修。'}</p><div class="meta"><span class="tag ${heavy?'red':c?'gold':'green'}">${heavy?'重度冲突':c?'轻度冲突':'无冲突'}</span><span class="tag">${s.key}关键</span></div></button>`}).join("")}</div>`:''}
   ${sectionHeading(`${school.name}节点`,`${schoolSpent} OP · ${school.id===state.schoolId?'初始学派':'兼修学派，不提供初始训练'}`)}
-  ${school.id==='deadbook'?'<div class="notice danger">《亡灵书：构魂术》的冠位节点目前没有明确 OP 消耗与前置条件，因此工具会保留显示，但不会自动允许购买。</div>':''}
   <div class="node-grid">${school.nodes.map(n=>{const selected=nodesFor(school.id).includes(n.id),enabled=selected||canSelectNode(n,school.id),fixed=school.id===state.schoolId&&n.id==='基石';return `<button class="node-card ${selected?'selected':''}" data-action="node" data-school="${school.id}" data-value="${n.id}" ${fixed||(!enabled&&!selected)?'disabled':''}><span class="node-id">${n.id}</span><span class="node-cost">${n.cost??'待定'} OP</span><h3>${n.name}</h3><p>${n.theme}</p><div class="node-pre">前置：${n.pre.length?n.pre.join('、'):'无'}${selected?' · 已点亮':''}</div></button>`}).join("")}</div>`;
 }
 
@@ -342,7 +342,7 @@ function pdfDocument(){
 }
 function renderFinish(){
   const issues=allIssues(),pct=completion(),checks=issues.length?issues.map(i=>({ok:false,text:`${STEPS[i.step].nav}：${i.text}`})):[{ok:true,text:"所有必填项目与规则校验均已通过"}];
-  return `<div class="finish-hero"><div><h2>${issues.length?'角色轮廓已经完成':'可以上桌了'}</h2><p>${issues.length?`还有 ${issues.length} 项需要确认。你可以直接点击左侧步骤返回修正；工具不会清除已经填写的内容。`:'属性、背景、初始学派、节点、熟练、装备与成长选择已经通过自动检查。建议开团前再让主持人确认自创内容与时代装备。'}</p><div class="export-actions"><button class="primary-button" data-action="downloadPdf">下载 PDF</button><button class="ghost-button" data-action="print">浏览器打印</button><button class="ghost-button" data-action="downloadJson">导出存档</button><button class="ghost-button" data-action="downloadHtml">导出独立角色卡</button><button class="ghost-button" data-action="importJson">读取存档</button><input id="importFile" type="file" accept="application/json" hidden></div></div><div class="completion-ring" style="--progress:${pct}%"><b>${pct}%</b></div></div>
+  return `<div class="finish-hero"><div><h2>${issues.length?'角色轮廓已经完成':'可以上桌了'}</h2><p>${issues.length?`还有 ${issues.length} 项需要确认。你可以直接点击左侧步骤返回修正；工具不会清除已经填写的内容。`:'属性、背景、初始学派、节点、熟练、装备与成长选择已经通过自动检查。保存后会进入人物卡管理，可以持续记录资源、背包并继续升级。'}</p><div class="export-actions"><button class="primary-button" data-action="saveCharacter" ${issues.length?'disabled title="请先完成全部规则校验"':''}>${state.libraryId?'保存成长并返回管理':'保存并进入人物卡管理'}</button><a class="ghost-button manager-link" href="manager.html">打开人物卡管理</a><button class="ghost-button" data-action="downloadPdf">下载 PDF</button><button class="ghost-button" data-action="print">浏览器打印</button><button class="ghost-button" data-action="downloadJson">导出存档</button><button class="ghost-button" data-action="downloadHtml">导出独立角色卡</button><button class="ghost-button" data-action="importJson">读取存档</button><input id="importFile" type="file" accept="application/json" hidden></div></div><div class="completion-ring" style="--progress:${pct}%"><b>${pct}%</b></div></div>
   <div style="margin-top:15px">${checkList(checks)}</div>${fullSheet()}`;
 }
 
@@ -373,6 +373,22 @@ function roll(sides,count){let sum=0;for(let i=0;i<count;i++)sum+=1+Math.floor(M
 function filename(){return (state.name.trim()||"未命名角色").replace(/[\\/:*?"<>|]/g,"-");}
 function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function exportData(){return {...state,derived:{finalStats:finalStats(),hp:hpMax(),ac:armorClass(),initiative:mod(finalStats().敏捷),proficiency:profBonus(),initialSchool:currentSchool()?.name,mainSchool:mainSchool()?.name,schoolValues:Object.fromEntries(learnedSchoolIds().map(id=>[id,{op:nodeSpentFor(id),attack:schoolAttack(id),dc:schoolDC(id)}])),saves:uniq([backgroundSave(),currentSchool()?.save]),skills:Object.fromEntries(ALL_SKILLS.map(s=>[s,skillBonus(s)]))}};}
+function loadImportedBuild(parsed,libraryId=""){
+  if(parsed?.version!==1)throw new Error("unsupported build");
+  const base=freshState();state={...base,...parsed,stats:{...base.stats,...parsed.stats},bgBonuses:{...base.bgBonuses,...parsed.bgBonuses},customBackground:{...base.customBackground,...parsed.customBackground},schoolNodes:{...(parsed.schoolNodes||{})}};
+  state.libraryId=libraryId||state.libraryId||"";state.tokenImage=safeTokenImage(state.tokenImage);
+  if(state.schoolId){if(!state.schoolOrder?.length)state.schoolOrder=[state.schoolId];if(!state.schoolNodes[state.schoolId])state.schoolNodes[state.schoolId]=Array.isArray(parsed.nodes)&&parsed.nodes.length?parsed.nodes:["基石"];if(!state.activeSchoolId)state.activeSchoolId=state.schoolId;}
+  saveState();render();toast("角色存档已读取");
+}
+function importCharacterText(text){
+  const parsed=JSON.parse(text);
+  if(parsed?.version===1&&Array.isArray(parsed.characters)){
+    CharacterStore.importPayload(parsed);
+    if(parsed.characters.length===1){const character=parsed.characters[0];loadImportedBuild(character.build,character.id);return;}
+    location.href="manager.html";return;
+  }
+  loadImportedBuild(parsed);
+}
 function processTokenFile(file){
   if(!["image/png","image/jpeg","image/webp"].includes(file?.type)){toast("请选择 PNG、JPG 或 WebP 图片");return;}
   if(file.size>12*1024*1024){toast("图片不能超过 12 MB");return;}
@@ -425,6 +441,7 @@ document.addEventListener("click",event=>{
   if(action==="guideFee"){state.guideFee=!state.guideFee;if(state.money){state.money=String(Math.max(0,+state.money+(state.guideFee?-50:50)));state.gold=String(Math.max(0,+state.gold+(state.guideFee?1:-1)))}render();return;}
   if(action==="featFilter"){state.featFilter=value;render();return;}
   if(action==="feat"){const found=state.rewards.find(r=>r.type==='feat'&&r.feat===value);if(found){found.feat=""}else{const slot=state.rewards.find(r=>r.type==='feat'&&!r.feat)||state.rewards.find(r=>!r.type);if(slot){slot.type='feat';slot.feat=value}else{toast("成长栏位已满")}}render();return;}
+  if(action==="saveCharacter"){const issues=allIssues();if(issues.length){toast(`请先处理：${issues[0].text}`);return;}try{const record=CharacterStore.upsertBuild(exportData(),state.libraryId);state.libraryId=record.id;saveState();location.href=`manager.html?id=${encodeURIComponent(record.id)}`;}catch(error){console.error(error);toast("保存失败，请先导出存档并检查浏览器存储空间");}return;}
   if(action==="downloadPdf"){exportPdf();return;}if(action==="print"){window.print();return;}if(action==="downloadJson"){download(`${filename()}-角色存档.json`,JSON.stringify(exportData(),null,2),"application/json;charset=utf-8");return;}
   if(action==="downloadHtml"){const html=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>${esc(state.name)}的角色卡</title><style>body{font-family:"Microsoft YaHei",sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#222}.sheet-full{border:1px solid #999;padding:24px}.sheet-full-head,.summary-strip,.preview-stat,.sheet-columns{display:grid;gap:12px}.sheet-full-head{grid-template-columns:1fr auto;border-bottom:1px solid #bbb;padding-bottom:12px}.sheet-identity{display:flex;align-items:center;gap:14px}.token-avatar{width:70px;height:70px;border:1px solid #999;border-radius:50%;overflow:hidden;display:grid;place-items:center;flex:0 0 auto}.token-avatar img{width:100%;height:100%;object-fit:cover}.summary-strip{grid-template-columns:repeat(4,1fr);margin-top:14px}.preview-stat{grid-template-columns:repeat(6,1fr);margin:14px 0}.sheet-columns{grid-template-columns:1fr 1fr}.summary-box,.preview-stat>div{border:1px solid #bbb;padding:10px;text-align:center}.summary-box small,.summary-box b,.preview-stat b,.preview-stat small{display:block}h2{margin:0}.eyebrow{font-size:10px;letter-spacing:.15em;color:#80602c}.sheet-block{font-size:13px;line-height:1.65}.sheet-block h3{color:#80602c}.tag{border:1px solid #aaa;border-radius:99px;padding:2px 6px}@media print{body{margin:0}.sheet-full{border:0}}</style><body>${fullSheet()}</body></html>`;download(`${filename()}-角色卡.html`,html,"text/html;charset=utf-8");return;}
   if(action==="importJson"){$("#importFile").click();return;}
@@ -442,7 +459,7 @@ document.addEventListener("change",event=>{
   if(el.dataset.select){const key=el.dataset.select;if(key==='totalOP'){state.totalOP=Math.max(1,Math.min(30,+el.value||1));normalizedRewards();}else if(key==='shield')state.shield=el.value==='true';else state[key]=el.value;render();return;}
   if(el.dataset.customSelect){state.customBackground.saves[el.dataset.customSelect==='save0'?0:1]=el.value;resetDependentFromBackground();render();return;}
   if(el.dataset.reward){const i=+el.dataset.index,r=state.rewards[i],key=el.dataset.reward;r[key]=el.value;if(key==='type'){r.feat="";r.attr1="";r.attr2=""}render();return;}
-  if(el.id==="importFile"&&el.files[0]){const reader=new FileReader();reader.onload=()=>{try{const parsed=JSON.parse(reader.result);if(parsed.version!==1)throw new Error();const base=freshState();state={...base,...parsed,stats:{...base.stats,...parsed.stats},bgBonuses:{...base.bgBonuses,...parsed.bgBonuses},customBackground:{...base.customBackground,...parsed.customBackground},schoolNodes:{...(parsed.schoolNodes||{})}};state.tokenImage=safeTokenImage(state.tokenImage);if(state.schoolId){if(!state.schoolOrder?.length)state.schoolOrder=[state.schoolId];if(!state.schoolNodes[state.schoolId])state.schoolNodes[state.schoolId]=Array.isArray(parsed.nodes)&&parsed.nodes.length?parsed.nodes:["基石"];if(!state.activeSchoolId)state.activeSchoolId=state.schoolId}saveState();render();toast("角色存档已读取")}catch{toast("无法读取这个存档文件")}};reader.readAsText(el.files[0]);}
+  if(el.id==="importFile"&&el.files[0]){const reader=new FileReader();reader.onload=()=>{try{importCharacterText(reader.result)}catch{toast("无法读取这个存档文件")}};reader.readAsText(el.files[0]);}
 });
 
 $("#backButton").addEventListener("click",()=>{if(state.step>0){state.step--;render();}});

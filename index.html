@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#171815">
-  <meta name="description" content="带有逐步引导、规则校验与角色卡导出的半自动车卡工具。">
-  <title>角色创建引导器</title>
-  <link rel="stylesheet" href="styles.css?v=20260819-2">
+  <meta name="description" content="带有逐步引导、规则校验、人物卡管理与后续升级的半自动车卡工具。">
+  <title>角色创建与人物卡管理</title>
+  <link rel="stylesheet" href="styles.css?v=20260820-1">
 </head>
 <body>
   <div class="app-shell">
@@ -21,7 +21,7 @@
     <main class="workspace">
       <header class="topbar">
         <div><span class="eyebrow">CHARACTER CREATION</span><h1 id="pageTitle">先认识你的角色</h1></div>
-        <button class="ghost-button" id="resetButton" type="button">重新开始</button>
+        <div class="topbar-actions"><a class="ghost-button manager-link" href="manager.html">人物卡管理</a><button class="ghost-button" id="resetButton" type="button">重新开始</button></div>
       </header>
       <section id="stepContent" class="step-content" aria-live="polite"></section>
       <footer class="actionbar">
@@ -34,8 +34,9 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="data.js"></script>
+  <script src="character-store.js?v=20260819-1"></script>
   <script src="html2canvas.min.js"></script>
   <script src="jspdf.umd.min.js"></script>
-  <script src="app.js?v=20260819-2"></script>
+  <script src="app.js?v=20260820-1"></script>
 </body>
 </html>
