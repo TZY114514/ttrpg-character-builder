@@ -283,6 +283,58 @@ function fullSheet(){
   <div class="sheet-block"><h3>装备</h3><p><b>武器：</b>${weapon?`${weapon.name}，${weapon.damage} ${weapon.type}；${weapon.tagsText}`:'—'}<br><b>护甲：</b>${ARMORS.find(a=>a.id===state.armor)?.name||'不穿甲'}${state.shield?'，盾牌':''}<br><b>装备包：</b>${state.pack||'—'}<br><b>资金：</b>${state.money||'—'} / ${state.gold||0} 金币<br><b>其他：</b>${esc(state.equipmentNotes||'—')}</p></div>
   <div class="sheet-block"><h3>背景特性</h3><p><b>${esc(bg?.feature||'—')}：</b>${esc(bg?.featureText||'')}</p><h3>成长选择</h3><ul>${rewards.length?rewards.map(r=>`<li>${r.type==='feat'?FEATS.find(f=>f.id===r.feat)?.name||'未选专长':r.type==='asi2'?`${r.attr1||'未选'} +2`:r.type==='asi11'?`${r.attr1||'未选'}、${r.attr2||'未选'}各 +1`:'未完成'}</li>`).join(''):'<li>当前 OP 尚无成长选择</li>'}</ul></div></div></div>`;
 }
+function pdfRewardText(reward){
+  if(reward.type==='feat')return FEATS.find(f=>f.id===reward.feat)?.name||'未选专长';
+  if(reward.type==='asi2')return `${reward.attr1||'未选'} +2`;
+  if(reward.type==='asi11')return `${reward.attr1||'未选'}、${reward.attr2||'未选'}各 +1`;
+  return '未完成';
+}
+function splitTextForPdf(value,maxChars=780){
+  let rest=String(value||'').trim();const parts=[];
+  while(rest.length>maxChars){const sample=rest.slice(0,maxChars+1);let cut=-1;['\n','。','！','？','；','.','!','?'].forEach(mark=>cut=Math.max(cut,sample.lastIndexOf(mark)));if(cut<maxChars*.55)cut=maxChars;else cut+=1;parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
+  if(rest)parts.push(rest);return parts;
+}
+function pdfStoryGroups(){
+  const blocks=[['人物经历',state.reason],['恐惧与代价',state.fear],['重要关系',state.contact],['仍未摆脱的牵连',state.entanglement]],pieces=[];
+  blocks.forEach(([title,text])=>splitTextForPdf(text).forEach((part,index)=>pieces.push({title:index?`${title}（续）`:title,text:part})));
+  if(!pieces.length)return [];
+  const groups=[];let current=[],load=0;
+  pieces.forEach(piece=>{const cost=piece.text.length+100;if(current.length&&load+cost>1120){groups.push(current);current=[];load=0;}current.push(piece);load+=cost;});if(current.length)groups.push(current);return groups;
+}
+function pdfPage(spec,index,total){
+  const school=currentSchool(),header=spec.kind==='overview'?'':`<header class="pdf-doc-head"><div><span>CHARACTER RECORD</span><b>${esc(state.name||'未命名角色')}</b></div><div><strong>${esc(spec.title)}</strong><small>${esc(spec.subtitle||school?.name||'角色档案')}</small></div></header>`;
+  return `<section class="pdf-page pdf-page-${spec.kind}"><div class="pdf-page-frame"></div>${header}<main class="pdf-page-body">${spec.body}</main><footer class="pdf-doc-footer"><span>${esc(state.name||'未命名角色')} · ${state.totalOP} OP</span><i></i><span>${String(index+1).padStart(2,'0')} / ${String(total).padStart(2,'0')}</span></footer></section>`;
+}
+function pdfOverviewBody(){
+  const bg=currentBackground(),school=currentSchool(),stats=finalStats(),weapon=selectedWeaponData(),rewards=normalizedRewards(),saves=uniq([backgroundSave(),school?.save]);
+  return `<div class="pdf-hero">${tokenMarkup('pdf-token')}<div class="pdf-hero-copy"><span>CHARACTER RECORD</span><h1>${esc(state.name||'未命名角色')}</h1><p>${esc(state.concept||'尚未填写角色概念')}</p><small>${state.player?`玩家 ${esc(state.player)} · `:''}${state.origin==='inner'?'门内人':'门外人'} · ${esc(bg?.name||'未选背景')}</small></div><div class="pdf-op-seal"><small>总 OP</small><b>${state.totalOP}</b></div></div>
+  <div class="pdf-core-grid"><div><small>生命值</small><b>${hpMax()||'—'}</b></div><div><small>护甲等级</small><b>${armorClass()}</b></div><div><small>先攻</small><b>${signed(mod(stats.敏捷))}</b></div><div><small>熟练加值</small><b>${signed(profBonus())}</b></div></div>
+  <div class="pdf-attribute-grid">${ATTRIBUTES.map(a=>`<div><span>${a}</span><b>${stats[a]}</b><small>${signed(mod(stats[a]))}</small></div>`).join('')}</div>
+  <div class="pdf-overview-grid"><div class="pdf-card-stack">
+    <section class="pdf-card"><h2>身份与学派</h2><div class="pdf-data-grid"><span>背景<b>${esc(bg?.name||'—')}</b></span><span>初始学派<b>${esc(school?.name||'—')}</b></span><span>当前主学派<b>${esc(mainSchool()?.name||'—')}</b></span><span>生命骰<b>${school?`d${school.hitDie}`:'—'}</b></span></div></section>
+    <section class="pdf-card"><h2>训练</h2><p><b>豁免</b>${esc(saves.join('、')||'—')}</p><p><b>技能</b>${esc(allSkills().join('、')||'—')}</p><p><b>武器</b>${esc(allWeapons().join('、')||'—')}</p><p><b>护甲</b>${esc(school?.armor.join('、')||'无')}</p><p><b>工具与语言</b>${esc(allToolsLanguages().join('、')||'—')}</p></section>
+  </div><div class="pdf-card-stack">
+    <section class="pdf-card"><h2>装备</h2><p><b>武器</b>${weapon?`${esc(weapon.name)} · ${esc(weapon.damage)} ${esc(weapon.type)}`:'—'}</p><p><b>护甲</b>${esc(ARMORS.find(a=>a.id===state.armor)?.name||'不穿甲')}${state.shield?' · 盾牌':''}</p><p><b>装备包</b>${esc(state.pack||'—')}</p><p><b>资金</b>${esc(state.money||'—')} / ${esc(state.gold||0)} 金币</p><p><b>其他</b>${esc(state.equipmentNotes||'—')}</p></section>
+    <section class="pdf-card pdf-feature-card"><h2>背景特性</h2><h3>${esc(bg?.feature||'—')}</h3><p>${esc(bg?.featureText||'尚未记录')}</p></section>
+    <section class="pdf-card"><h2>成长选择</h2><div class="pdf-tag-list">${rewards.length?rewards.map(r=>`<span>${esc(pdfRewardText(r))}</span>`).join(''):'<span>当前 OP 尚无成长选择</span>'}</div></section>
+  </div></div>`;
+}
+function pdfSchoolBody(nodes,continuation=false){
+  const rewards=normalizedRewards();
+  return `<div class="pdf-school-pills">${learnedSchoolIds().map(id=>{const s=schoolById(id);return `<div><span>${esc(s.name)}</span><b>${nodeSpentFor(id)} OP</b><small>${s.key} · 攻击 ${signed(schoolAttack(id))} · DC ${schoolDC(id)}</small></div>`}).join('')||'<div><span>尚未选择学派</span></div>'}</div>
+  <section class="pdf-section"><div class="pdf-section-head"><h2>${continuation?'节点记录（续）':'节点记录'}</h2><span>${selectedNodeObjects().length} 个节点</span></div><div class="pdf-node-list">${nodes.map(n=>`<div class="pdf-node-row"><em>${esc(n.id)}</em><div><b>${esc(n.name)}</b><small>${esc(schoolById(n.schoolId)?.name||'')} · ${esc(n.theme||'')}</small></div><strong>${n.cost??'—'} OP</strong></div>`).join('')||'<div class="pdf-empty-row">尚未记录节点</div>'}</div></section>
+  ${continuation?'':`<section class="pdf-card pdf-school-notes"><h2>学派底盘与成长</h2><p><b>初始器具</b>${esc(currentSchool()?.implements||'—')}</p><p><b>成长选择</b>${rewards.length?esc(rewards.map(pdfRewardText).join('、')):'当前 OP 尚无成长选择'}</p></section>`}`;
+}
+function pdfStoryBody(group){
+  return `<div class="pdf-story-intro"><span>PERSONAL DOSSIER</span><p>角色的经历、关系与未解决牵连。此处保留完整文字，不因角色卡首页的机械信息而删节。</p></div><div class="pdf-story-list">${group.map(block=>`<section class="pdf-prose-card"><h2>${esc(block.title)}</h2><p>${esc(block.text)}</p></section>`).join('')}</div>`;
+}
+function pdfDocument(){
+  const specs=[{kind:'overview',title:'角色总览',body:pdfOverviewBody()}],nodes=selectedNodeObjects();
+  const nodeChunks=[];for(let i=0;i<nodes.length;i+=10)nodeChunks.push(nodes.slice(i,i+10));if(!nodeChunks.length)nodeChunks.push([]);
+  nodeChunks.forEach((chunk,index)=>specs.push({kind:'school',title:index?'学派与节点（续）':'学派与节点',subtitle:index?`第 ${index+1} 组节点`:'能力结构与成长记录',body:pdfSchoolBody(chunk,index>0)}));
+  pdfStoryGroups().forEach((group,index)=>specs.push({kind:'story',title:index?'人物经历（续）':'人物经历与牵连',subtitle:index?`档案续页 ${index+1}`:'完整人物档案',body:pdfStoryBody(group)}));
+  return specs.map((spec,index)=>pdfPage(spec,index,specs.length)).join('');
+}
 function renderFinish(){
   const issues=allIssues(),pct=completion(),checks=issues.length?issues.map(i=>({ok:false,text:`${STEPS[i.step].nav}：${i.text}`})):[{ok:true,text:"所有必填项目与规则校验均已通过"}];
   return `<div class="finish-hero"><div><h2>${issues.length?'角色轮廓已经完成':'可以上桌了'}</h2><p>${issues.length?`还有 ${issues.length} 项需要确认。你可以直接点击左侧步骤返回修正；工具不会清除已经填写的内容。`:'属性、背景、初始学派、节点、熟练、装备与成长选择已经通过自动检查。建议开团前再让主持人确认自创内容与时代装备。'}</p><div class="export-actions"><button class="primary-button" data-action="downloadPdf">下载 PDF</button><button class="ghost-button" data-action="print">浏览器打印</button><button class="ghost-button" data-action="downloadJson">导出存档</button><button class="ghost-button" data-action="downloadHtml">导出独立角色卡</button><button class="ghost-button" data-action="importJson">读取存档</button><input id="importFile" type="file" accept="application/json" hidden></div></div><div class="completion-ring" style="--progress:${pct}%"><b>${pct}%</b></div></div>
@@ -327,15 +379,14 @@ async function exportPdf(){
   if(!window.html2canvas||!window.jspdf?.jsPDF){toast("PDF 组件未能加载，请刷新页面后重试");return;}
   const button=document.querySelector('[data-action="downloadPdf"]'),oldText=button?.textContent,stage=document.createElement("div");
   if(button){button.disabled=true;button.textContent="正在生成…";}
-  stage.className="pdf-stage";stage.innerHTML=fullSheet();document.body.appendChild(stage);
+  stage.className="pdf-stage";stage.innerHTML=pdfDocument();document.body.appendChild(stage);
   try{
     if(document.fonts?.ready)await document.fonts.ready;
-    const sheet=stage.querySelector(".sheet-full"),canvas=await window.html2canvas(sheet,{backgroundColor:"#ffffff",scale:2,useCORS:true,logging:false,scrollX:0,scrollY:0});
-    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true}),margin=8,pageWidth=210-margin*2,pageHeight=297-margin*2,sliceHeight=Math.max(1,Math.floor(pageHeight*canvas.width/pageWidth));
-    for(let y=0,page=0;y<canvas.height;y+=sliceHeight,page++){
-      if(page)pdf.addPage();
-      const height=Math.min(sliceHeight,canvas.height-y),part=document.createElement("canvas");part.width=canvas.width;part.height=height;part.getContext("2d").drawImage(canvas,0,y,canvas.width,height,0,0,canvas.width,height);
-      pdf.addImage(part.toDataURL("image/jpeg",.93),"JPEG",margin,margin,pageWidth,height*pageWidth/canvas.width,undefined,"FAST");
+    const pages=[...stage.querySelectorAll('.pdf-page')],{jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
+    for(let index=0;index<pages.length;index++){
+      if(index)pdf.addPage();
+      const canvas=await window.html2canvas(pages[index],{backgroundColor:"#f7f3ea",scale:2,useCORS:true,logging:false,scrollX:0,scrollY:0});
+      pdf.addImage(canvas.toDataURL("image/jpeg",.95),"JPEG",0,0,210,297,undefined,"FAST");
     }
     pdf.save(`${filename()}-角色卡.pdf`);toast("PDF 已开始下载");
   }catch(error){console.error(error);toast("PDF 生成失败，可先使用浏览器打印");}
