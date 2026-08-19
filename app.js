@@ -289,7 +289,7 @@ function pdfRewardText(reward){
   if(reward.type==='asi11')return `${reward.attr1||'未选'}、${reward.attr2||'未选'}各 +1`;
   return '未完成';
 }
-function splitTextForPdf(value,maxChars=780){
+function splitTextForPdf(value,maxChars=1000){
   let rest=String(value||'').trim();const parts=[];
   while(rest.length>maxChars){const sample=rest.slice(0,maxChars+1);let cut=-1;['\n','。','！','？','；','.','!','?'].forEach(mark=>cut=Math.max(cut,sample.lastIndexOf(mark)));if(cut<maxChars*.55)cut=maxChars;else cut+=1;parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
   if(rest)parts.push(rest);return parts;
@@ -299,7 +299,7 @@ function pdfStoryGroups(){
   blocks.forEach(([title,text])=>splitTextForPdf(text).forEach((part,index)=>pieces.push({title:index?`${title}（续）`:title,text:part})));
   if(!pieces.length)return [];
   const groups=[];let current=[],load=0;
-  pieces.forEach(piece=>{const cost=piece.text.length+100;if(current.length&&load+cost>1120){groups.push(current);current=[];load=0;}current.push(piece);load+=cost;});if(current.length)groups.push(current);return groups;
+  pieces.forEach(piece=>{const cost=piece.text.length+100;if(current.length&&load+cost>1500){groups.push(current);current=[];load=0;}current.push(piece);load+=cost;});if(current.length)groups.push(current);return groups;
 }
 function pdfPage(spec,index,total){
   const school=currentSchool(),header=spec.kind==='overview'?'':`<header class="pdf-doc-head"><div><span>CHARACTER RECORD</span><b>${esc(state.name||'未命名角色')}</b></div><div><strong>${esc(spec.title)}</strong><small>${esc(spec.subtitle||school?.name||'角色档案')}</small></div></header>`;
@@ -328,11 +328,16 @@ function pdfSchoolBody(nodes,continuation=false){
 function pdfStoryBody(group){
   return `<div class="pdf-story-intro"><span>PERSONAL DOSSIER</span><p>角色的经历、关系与未解决牵连。此处保留完整文字，不因角色卡首页的机械信息而删节。</p></div><div class="pdf-story-list">${group.map(block=>`<section class="pdf-prose-card"><h2>${esc(block.title)}</h2><p>${esc(block.text)}</p></section>`).join('')}</div>`;
 }
+function pdfCompactStoryBody(groups){
+  const blocks=groups.flat();if(!blocks.length)return '';
+  return `<section class="pdf-compact-story"><div class="pdf-section-head"><h2>人物档案</h2><span>经历与牵连</span></div><div class="pdf-compact-story-grid">${blocks.map(block=>`<div><h3>${esc(block.title)}</h3><p>${esc(block.text)}</p></div>`).join('')}</div></section>`;
+}
 function pdfDocument(){
-  const specs=[{kind:'overview',title:'角色总览',body:pdfOverviewBody()}],nodes=selectedNodeObjects();
+  const specs=[{kind:'overview',title:'角色总览',body:pdfOverviewBody()}],nodes=selectedNodeObjects(),storyGroups=pdfStoryGroups(),storyLength=[state.reason,state.fear,state.contact,state.entanglement].join('').length;
+  if(nodes.length<=5&&storyLength<=650){specs.push({kind:'detail',title:'能力与人物档案',subtitle:'学派节点、成长与牵连',body:pdfSchoolBody(nodes,false)+pdfCompactStoryBody(storyGroups)});return specs.map((spec,index)=>pdfPage(spec,index,specs.length)).join('');}
   const nodeChunks=[];for(let i=0;i<nodes.length;i+=10)nodeChunks.push(nodes.slice(i,i+10));if(!nodeChunks.length)nodeChunks.push([]);
   nodeChunks.forEach((chunk,index)=>specs.push({kind:'school',title:index?'学派与节点（续）':'学派与节点',subtitle:index?`第 ${index+1} 组节点`:'能力结构与成长记录',body:pdfSchoolBody(chunk,index>0)}));
-  pdfStoryGroups().forEach((group,index)=>specs.push({kind:'story',title:index?'人物经历（续）':'人物经历与牵连',subtitle:index?`档案续页 ${index+1}`:'完整人物档案',body:pdfStoryBody(group)}));
+  storyGroups.forEach((group,index)=>specs.push({kind:'story',title:index?'人物经历（续）':'人物经历与牵连',subtitle:index?`档案续页 ${index+1}`:'完整人物档案',body:pdfStoryBody(group)}));
   return specs.map((spec,index)=>pdfPage(spec,index,specs.length)).join('');
 }
 function renderFinish(){
