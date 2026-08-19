@@ -285,7 +285,7 @@ function fullSheet(){
 }
 function renderFinish(){
   const issues=allIssues(),pct=completion(),checks=issues.length?issues.map(i=>({ok:false,text:`${STEPS[i.step].nav}：${i.text}`})):[{ok:true,text:"所有必填项目与规则校验均已通过"}];
-  return `<div class="finish-hero"><div><h2>${issues.length?'角色轮廓已经完成':'可以上桌了'}</h2><p>${issues.length?`还有 ${issues.length} 项需要确认。你可以直接点击左侧步骤返回修正；工具不会清除已经填写的内容。`:'属性、背景、初始学派、节点、熟练、装备与成长选择已经通过自动检查。建议开团前再让主持人确认自创内容与时代装备。'}</p><div class="export-actions"><button class="primary-button" data-action="print">打印／存为 PDF</button><button class="ghost-button" data-action="downloadJson">导出存档</button><button class="ghost-button" data-action="downloadHtml">导出独立角色卡</button><button class="ghost-button" data-action="importJson">读取存档</button><input id="importFile" type="file" accept="application/json" hidden></div></div><div class="completion-ring" style="--progress:${pct}%"><b>${pct}%</b></div></div>
+  return `<div class="finish-hero"><div><h2>${issues.length?'角色轮廓已经完成':'可以上桌了'}</h2><p>${issues.length?`还有 ${issues.length} 项需要确认。你可以直接点击左侧步骤返回修正；工具不会清除已经填写的内容。`:'属性、背景、初始学派、节点、熟练、装备与成长选择已经通过自动检查。建议开团前再让主持人确认自创内容与时代装备。'}</p><div class="export-actions"><button class="primary-button" data-action="downloadPdf">下载 PDF</button><button class="ghost-button" data-action="print">浏览器打印</button><button class="ghost-button" data-action="downloadJson">导出存档</button><button class="ghost-button" data-action="downloadHtml">导出独立角色卡</button><button class="ghost-button" data-action="importJson">读取存档</button><input id="importFile" type="file" accept="application/json" hidden></div></div><div class="completion-ring" style="--progress:${pct}%"><b>${pct}%</b></div></div>
   <div style="margin-top:15px">${checkList(checks)}</div>${fullSheet()}`;
 }
 
@@ -323,6 +323,24 @@ function processTokenFile(file){
   reader.onload=()=>{const image=new Image();image.onload=()=>{const size=512,canvas=document.createElement("canvas"),ctx=canvas.getContext("2d"),side=Math.min(image.naturalWidth,image.naturalHeight),sx=(image.naturalWidth-side)/2,sy=(image.naturalHeight-side)/2;canvas.width=size;canvas.height=size;ctx.drawImage(image,sx,sy,side,side,0,0,size,size);state.tokenImage=canvas.toDataURL("image/webp",.84);render();toast("角色形象已加入");};image.onerror=()=>toast("无法读取这张图片");image.src=reader.result;};
   reader.onerror=()=>toast("无法读取这张图片");reader.readAsDataURL(file);
 }
+async function exportPdf(){
+  if(!window.html2canvas||!window.jspdf?.jsPDF){toast("PDF 组件未能加载，请刷新页面后重试");return;}
+  const button=document.querySelector('[data-action="downloadPdf"]'),oldText=button?.textContent,stage=document.createElement("div");
+  if(button){button.disabled=true;button.textContent="正在生成…";}
+  stage.className="pdf-stage";stage.innerHTML=fullSheet();document.body.appendChild(stage);
+  try{
+    if(document.fonts?.ready)await document.fonts.ready;
+    const sheet=stage.querySelector(".sheet-full"),canvas=await window.html2canvas(sheet,{backgroundColor:"#ffffff",scale:2,useCORS:true,logging:false,scrollX:0,scrollY:0});
+    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true}),margin=8,pageWidth=210-margin*2,pageHeight=297-margin*2,sliceHeight=Math.max(1,Math.floor(pageHeight*canvas.width/pageWidth));
+    for(let y=0,page=0;y<canvas.height;y+=sliceHeight,page++){
+      if(page)pdf.addPage();
+      const height=Math.min(sliceHeight,canvas.height-y),part=document.createElement("canvas");part.width=canvas.width;part.height=height;part.getContext("2d").drawImage(canvas,0,y,canvas.width,height,0,0,canvas.width,height);
+      pdf.addImage(part.toDataURL("image/jpeg",.93),"JPEG",margin,margin,pageWidth,height*pageWidth/canvas.width,undefined,"FAST");
+    }
+    pdf.save(`${filename()}-角色卡.pdf`);toast("PDF 已开始下载");
+  }catch(error){console.error(error);toast("PDF 生成失败，可先使用浏览器打印");}
+  finally{stage.remove();if(button){button.disabled=false;button.textContent=oldText;}}
+}
 
 document.addEventListener("click",event=>{
   const el=event.target.closest("[data-action]");if(!el)return;const action=el.dataset.action,value=el.dataset.value;
@@ -351,7 +369,7 @@ document.addEventListener("click",event=>{
   if(action==="guideFee"){state.guideFee=!state.guideFee;if(state.money){state.money=String(Math.max(0,+state.money+(state.guideFee?-50:50)));state.gold=String(Math.max(0,+state.gold+(state.guideFee?1:-1)))}render();return;}
   if(action==="featFilter"){state.featFilter=value;render();return;}
   if(action==="feat"){const found=state.rewards.find(r=>r.type==='feat'&&r.feat===value);if(found){found.feat=""}else{const slot=state.rewards.find(r=>r.type==='feat'&&!r.feat)||state.rewards.find(r=>!r.type);if(slot){slot.type='feat';slot.feat=value}else{toast("成长栏位已满")}}render();return;}
-  if(action==="print"){window.print();return;}if(action==="downloadJson"){download(`${filename()}-角色存档.json`,JSON.stringify(exportData(),null,2),"application/json;charset=utf-8");return;}
+  if(action==="downloadPdf"){exportPdf();return;}if(action==="print"){window.print();return;}if(action==="downloadJson"){download(`${filename()}-角色存档.json`,JSON.stringify(exportData(),null,2),"application/json;charset=utf-8");return;}
   if(action==="downloadHtml"){const html=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>${esc(state.name)}的角色卡</title><style>body{font-family:"Microsoft YaHei",sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#222}.sheet-full{border:1px solid #999;padding:24px}.sheet-full-head,.summary-strip,.preview-stat,.sheet-columns{display:grid;gap:12px}.sheet-full-head{grid-template-columns:1fr auto;border-bottom:1px solid #bbb;padding-bottom:12px}.sheet-identity{display:flex;align-items:center;gap:14px}.token-avatar{width:70px;height:70px;border:1px solid #999;border-radius:50%;overflow:hidden;display:grid;place-items:center;flex:0 0 auto}.token-avatar img{width:100%;height:100%;object-fit:cover}.summary-strip{grid-template-columns:repeat(4,1fr);margin-top:14px}.preview-stat{grid-template-columns:repeat(6,1fr);margin:14px 0}.sheet-columns{grid-template-columns:1fr 1fr}.summary-box,.preview-stat>div{border:1px solid #bbb;padding:10px;text-align:center}.summary-box small,.summary-box b,.preview-stat b,.preview-stat small{display:block}h2{margin:0}.eyebrow{font-size:10px;letter-spacing:.15em;color:#80602c}.sheet-block{font-size:13px;line-height:1.65}.sheet-block h3{color:#80602c}.tag{border:1px solid #aaa;border-radius:99px;padding:2px 6px}@media print{body{margin:0}.sheet-full{border:0}}</style><body>${fullSheet()}</body></html>`;download(`${filename()}-角色卡.html`,html,"text/html;charset=utf-8");return;}
   if(action==="importJson"){$("#importFile").click();return;}
 });
